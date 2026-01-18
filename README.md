@@ -1,38 +1,38 @@
 # Log Explorer MCP
 
-MCP сервер для интеллектуального анализа логов с кластеризацией.
+MCP server for intelligent log analysis with clustering.
 
-## Идея
+## Idea
 
-Логи — это огромные файлы, которые невозможно засунуть в контекст LLM. Традиционный подход (grep) требует знать что искать. Этот инструмент решает проблему иначе:
+Logs are huge files that can't fit into LLM context. Traditional approach (grep) requires knowing what to search for. This tool solves the problem differently:
 
-1. **Кластеризация** — автоматическое группирование похожих строк
-2. **Lazy exploration** — сначала статистика и примеры, детали по запросу
-3. **LLM-driven drill-down** — LLM сама решает куда углубляться
-4. **Временной анализ** — динамика логов, детекция аномалий
+1. **Clustering** — automatic grouping of similar lines
+2. **Lazy exploration** — statistics and examples first, details on demand
+3. **LLM-driven drill-down** — LLM decides where to explore deeper
+4. **Temporal analysis** — log dynamics, anomaly detection
 
-## Быстрый старт
+## Quick Start
 
 ```bash
 npm install
 node test-cli.js /var/log/syslog
 ```
 
-## Сценарий использования
+## Usage Scenario
 
 ```
-LLM: "Проанализируй /var/log/app.log"
+LLM: "Analyze /var/log/app.log"
 
-1. log_overview → "12M строк, 3 дня, пик в 14:00 вчера"
+1. log_overview → "12M lines, 3 days, peak at 14:00 yesterday"
 
-2. log_cluster → 
-   Cluster A: 68% - "INFO request completed..." 
+2. log_cluster →
+   Cluster A: 68% - "INFO request completed..."
    Cluster B: 26% - "DEBUG cache hit/miss..."
    Cluster C: 4%  - "WARN connection timeout..."
-   Cluster D: 2%  - "ERROR ..." ← интересно!
+   Cluster D: 2%  - "ERROR ..." ← interesting!
 
 3. log_timeline(cluster_id=D) →
-   "ERROR резко вырос с 100/час до 5000/час в 13:45"
+   "ERROR sharply increased from 100/hour to 5000/hour at 13:45"
 
 4. log_cluster_drill(cluster_id=D) →
    D1: "ERROR database connection refused" (70%)
@@ -40,12 +40,12 @@ LLM: "Проанализируй /var/log/app.log"
    D3: "ERROR timeout calling payment API" (10%)
 
 5. log_grep("database connection refused") →
-   count: 3500, примеры с контекстом
+   count: 3500, examples with context
 
-6. log_fetch(...) → только когда нужны все строки
+6. log_fetch(...) → only when you need all lines
 ```
 
-## Установка
+## Installation
 
 ```bash
 git clone <repo>
@@ -53,11 +53,11 @@ cd log-explorer-mcp
 npm install
 ```
 
-## Использование
+## Usage
 
-### Как MCP сервер
+### As MCP Server
 
-Добавьте в конфигурацию вашего MCP клиента:
+Add to your MCP client configuration:
 
 ```json
 {
@@ -70,13 +70,13 @@ npm install
 }
 ```
 
-### CLI для тестирования
+### CLI for Testing
 
 ```bash
-# Сгенерировать тестовые логи
+# Generate test logs
 node generate-test-logs.cjs /tmp/test.log
 
-# Проанализировать
+# Analyze
 node test-cli.js /tmp/test.log
 ```
 
@@ -84,12 +84,12 @@ node test-cli.js /tmp/test.log
 
 ### log_overview
 
-Получить общую информацию о файле логов.
+Get general information about log file.
 
-**Параметры:**
-- `file` (string, required) — путь к файлу
+**Parameters:**
+- `file` (string, required) — file path
 
-**Ответ:**
+**Response:**
 ```json
 {
   "file": "/var/log/app.log",
@@ -105,15 +105,15 @@ node test-cli.js /tmp/test.log
 
 ### log_cluster
 
-Кластеризовать строки логов по схожести.
+Cluster log lines by similarity.
 
-**Параметры:**
-- `file` (string, required) — путь к файлу
-- `max_clusters` (number, default: 10) — максимум кластеров (2-20)
-- `threshold` (number, default: 0.4) — порог схожести (0.1-0.9)
-- `filter` (string, optional) — фильтр строк
+**Parameters:**
+- `file` (string, required) — file path
+- `max_clusters` (number, default: 10) — maximum clusters (2-20)
+- `threshold` (number, default: 0.4) — similarity threshold (0.1-0.9)
+- `filter` (string, optional) — line filter
 
-**Ответ:**
+**Response:**
 ```json
 {
   "total_lines": 1250000,
@@ -132,74 +132,73 @@ node test-cli.js /tmp/test.log
 
 ### log_cluster_drill
 
-Создать подкластеры внутри выбранного кластера.
+Create subclusters within selected cluster.
 
-**Параметры:**
+**Parameters:**
 - `file` (string, required)
-- `cluster_id` (number, required) — ID кластера из log_cluster
+- `cluster_id` (number, required) — cluster ID from log_cluster
 - `max_subclusters` (number, default: 5)
 
 ### log_timeline
 
-Получить временную гистограмму логов.
+Get temporal histogram of logs.
 
-**Параметры:**
+**Parameters:**
 - `file` (string, required)
-- `cluster_id` (number, optional) — только для конкретного кластера
+- `cluster_id` (number, optional) — only for specific cluster
 - `bucket_size` (string, default: "auto") — auto/minute/hour/day
 
-**Ответ включает:**
-- ASCII гистограмму
-- Обнаруженные аномалии (спайки > 2σ)
+**Response includes:**
+- ASCII histogram
+- Detected anomalies (spikes > 2σ)
 
 ### log_grep
 
-Поиск по паттерну с подсчётом и примерами.
+Search by pattern with count and examples.
 
-**Параметры:**
+**Parameters:**
 - `file` (string, required)
-- `pattern` (string, required) — подстрока или `/regex/`
+- `pattern` (string, required) — substring or `/regex/`
 - `max_examples` (number, default: 5)
 - `context_lines` (number, default: 0)
 
-**Важно:** Возвращает только count и примеры, НЕ все строки!
+**Important:** Returns only count and examples, NOT all lines!
 
 ### log_fetch
 
-Получить сырые строки (использовать когда точно знаете что нужно).
+Get raw lines (use when you know exactly what you need).
 
-**Параметры:**
+**Parameters:**
 - `file` (string, required)
 - `filter` (string, optional)
 - `offset` (number, default: 0)
 - `limit` (number, default: 100)
 
-## Алгоритм кластеризации
+## Clustering Algorithm
 
-Используется token-based similarity:
+Uses token-based similarity:
 
-1. Строки разбиваются на токены (слова, числа, пунктуация)
-2. Для двух строк ищутся максимальные совпадающие блоки токенов
-3. Формируется шаблон с `.*` на месте различий
+1. Lines are split into tokens (words, numbers, punctuation)
+2. For two lines, find maximum matching token blocks
+3. Form pattern with `.*` for differences
 4. Similarity = 2 × matched / (len_a + len_b)
 
-Подробнее см. [ARCHITECTURE.md](ARCHITECTURE.md)
+See [ARCHITECTURE.md](ARCHITECTURE.md) for details.
 
-## Файлы проекта
+## Project Files
 
 ```
-├── CLAUDE.md          # Инструкции для Claude Code
-├── README.md          # Этот файл
-├── ARCHITECTURE.md    # Детальная архитектура
-├── TODO.md            # Задачи на развитие
-├── package.json       
-├── server.js          # MCP сервер
-├── clustering.js      # Алгоритм кластеризации
-├── timestamps.js      # Парсинг временных меток
-├── test-cli.js        # CLI для тестирования
-└── generate-test-logs.cjs  # Генератор тестовых данных
+├── CLAUDE.md          # Instructions for Claude Code
+├── README.md          # This file
+├── ARCHITECTURE.md    # Detailed architecture
+├── package.json
+├── server.js          # MCP server
+├── clustering.js      # Clustering algorithm
+├── timestamps.js      # Timestamp parsing
+├── test-cli.js        # CLI for testing
+└── generate-test-logs.cjs  # Test data generator
 ```
 
-## Лицензия
+## License
 
 MIT

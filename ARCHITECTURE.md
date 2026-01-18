@@ -1,10 +1,10 @@
-# Архитектура Log Explorer MCP
+# Log Explorer MCP Architecture
 
-## Общая схема
+## General Schema
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                    LLM (Claude/другой)                      │
+│                    LLM (Claude/other)                       │
 └─────────────────────────┬───────────────────────────────────┘
                           │ MCP Protocol (JSON-RPC over stdio)
 ┌─────────────────────────▼───────────────────────────────────┐
@@ -38,9 +38,9 @@
 └───────────────────┘             └───────────────────┘
 ```
 
-## Модуль кластеризации (clustering.js)
+## Clustering Module (clustering.js)
 
-### Токенизация
+### Tokenization
 
 ```javascript
 tokenize("User john logged in")
@@ -55,63 +55,63 @@ tokenize("User john logged in")
 // ]
 ```
 
-Разделение на токены позволяет:
-- Не ломать слова при поиске совпадений
-- Отличать значимые токены от разделителей
-- Быстрее работать (меньше элементов чем символов)
+Token separation allows:
+- Not breaking words when searching for matches
+- Distinguishing significant tokens from delimiters
+- Faster processing (fewer elements than characters)
 
-### Алгоритм поиска совпадающих блоков
+### Matching Blocks Algorithm
 
 ```
 findMatchingTokenBlocks(tokensA, tokensB):
-  1. Строим DP матрицу для longest common suffix
-  2. Собираем все потенциальные блоки (где dp[i][j] > 0)
-  3. Фильтруем: оставляем только блоки с значимыми токенами
-  4. Сортируем по score = len + count(significant_tokens)
-  5. Жадно выбираем непересекающиеся блоки
-  6. Сортируем результат по позиции в строке A
+  1. Build DP matrix for longest common suffix
+  2. Collect all potential blocks (where dp[i][j] > 0)
+  3. Filter: keep only blocks with significant tokens
+  4. Sort by score = len + count(significant_tokens)
+  5. Greedily select non-overlapping blocks
+  6. Sort result by position in string A
 ```
 
-Сложность: O(m×n) где m, n — количество токенов.
+Complexity: O(m×n) where m, n — number of tokens.
 
-### Класс LogCluster
+### LogCluster Class
 
 ```javascript
 class LogCluster {
-  id: number           // Уникальный ID
-  template: string     // Текущий шаблон "INFO .* started"
-  staticParts: string[] // Статические части ["INFO ", " started"]
-  count: number        // Количество строк в кластере
-  examples: string[]   // До 5 примеров строк
-  timestamps: Date[]   // Временные метки (для timeline)
-  
-  tryAdd(line, threshold): boolean  // Попытка добавить строку
-  similarity(line): number          // Расчёт схожести
+  id: number           // Unique ID
+  template: string     // Current pattern "INFO .* started"
+  staticParts: string[] // Static parts ["INFO ", " started"]
+  count: number        // Number of lines in cluster
+  examples: string[]   // Up to 5 example lines
+  timestamps: Date[]   // Timestamps (for timeline)
+
+  tryAdd(line, threshold): boolean  // Attempt to add line
+  similarity(line): number          // Calculate similarity
 }
 ```
 
-### Класс LogClusterer
+### LogClusterer Class
 
 ```javascript
 class LogClusterer {
-  threshold: number     // Минимальная схожесть (default 0.4)
-  maxClusters: number   // Максимум кластеров (default 10)
+  threshold: number     // Minimum similarity (default 0.4)
+  maxClusters: number   // Maximum clusters (default 10)
   clusters: LogCluster[]
-  
-  add(line, timestamp): number  // Добавить строку, вернуть cluster_id
+
+  add(line, timestamp): number  // Add line, return cluster_id
   getCluster(id): LogCluster
   getStats(): ClusterStats[]
 }
 ```
 
-При превышении maxClusters — удаляется самый маленький кластер.
+When maxClusters is exceeded — the smallest cluster is removed.
 
-## Модуль временных меток (timestamps.js)
+## Timestamp Module (timestamps.js)
 
-### Поддерживаемые форматы
+### Supported Formats
 
-| Формат | Пример | Regex |
-|--------|--------|-------|
+| Format | Example | Regex |
+|--------|---------|-------|
 | ISO 8601 | `2024-01-15T10:30:00Z` | `\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2}` |
 | CLF | `[15/Jan/2024:10:30:00 +0000]` | `\[\d{2}/\w{3}/\d{4}:\d{2}:\d{2}:\d{2}` |
 | Syslog | `Jan 15 10:30:00` | `\w{3}\s+\d{1,2}\s+\d{2}:\d{2}:\d{2}` |
@@ -119,33 +119,33 @@ class LogClusterer {
 | Epoch ms | `1705315800000` | `1[4-9]\d{11}` |
 | Epoch s | `1705315800` | `1[4-9]\d{8}` |
 
-### Автодетекция формата
+### Format Auto-detection
 
 ```javascript
 detectTimestampFormat(sampleLines):
-  1. Для каждого паттерна из TIMESTAMP_PATTERNS:
-     - Считаем сколько строк матчатся
-     - Проверяем что parse даёт валидную дату
-  2. Выбираем паттерн с confidence > 50%
-  3. Возвращаем { pattern, confidence }
+  1. For each pattern in TIMESTAMP_PATTERNS:
+     - Count how many lines match
+     - Verify that parse returns valid date
+  2. Select pattern with confidence > 50%
+  3. Return { pattern, confidence }
 ```
 
-### Гистограммы
+### Histograms
 
 ```javascript
 calculateBucketSize(minDate, maxDate, targetBuckets=20):
-  // Выбирает "красивый" размер bucket: second, minute, 5min, hour, day...
+  // Selects "nice" bucket size: second, minute, 5min, hour, day...
 
 buildHistogram(timestamps, bucket):
-  // Возвращает [{start, end, count}, ...]
+  // Returns [{start, end, count}, ...]
 
 formatHistogram(histogram, maxWidth=40):
-  // ASCII визуализация с █ и ░
+  // ASCII visualization with █ and ░
 ```
 
 ## MCP Server (server.js)
 
-### Кэширование
+### Caching
 
 ```javascript
 const fileCache = new Map();
@@ -153,93 +153,93 @@ const fileCache = new Map();
 // value: { totalLines, clusterer, timestamps, timestampPattern }
 ```
 
-Кэш позволяет не перечитывать файл при последовательных вызовах `log_cluster`, `log_timeline`, `log_cluster_drill`.
+Cache prevents re-reading the file during sequential calls to `log_cluster`, `log_timeline`, `log_cluster_drill`.
 
-### Обработчики инструментов
+### Tool Handlers
 
 #### log_overview
 ```
-→ statSync для размера
-→ getOrCreateClustering для подсчёта строк и детекции времени
+→ statSync for size
+→ getOrCreateClustering for line count and time detection
 ← { file, size, total_lines, timestamp_format, time_range }
 ```
 
 #### log_cluster
 ```
-→ getOrCreateClustering с параметрами
+→ getOrCreateClustering with parameters
 → clusterer.getStats()
 ← { total_lines, cluster_count, clusters: [{id, count, percent, template, examples}] }
 ```
 
 #### log_cluster_drill
 ```
-→ Находим родительский кластер
-→ Создаём новый LogClusterer с threshold=0.5
-→ Перечитываем файл, добавляя только строки похожие на родителя
+→ Find parent cluster
+→ Create new LogClusterer with threshold=0.5
+→ Re-read file, adding only lines similar to parent
 ← { parent_cluster, subclusters: [...] }
 ```
 
 #### log_timeline
 ```
 → getOrCreateClustering
-→ Если cluster_id задан — фильтруем timestamps
+→ If cluster_id specified — filter timestamps
 → calculateBucketSize + buildHistogram
-→ Детекция аномалий (> avg + 2σ)
+→ Anomaly detection (> avg + 2σ)
 ← { bucket_size, histogram_ascii, anomalies }
 ```
 
 #### log_grep
 ```
-→ Итерируем файл с фильтром
-→ Считаем matches, собираем до max_examples
-← { total_matches, examples }  // НЕ все строки!
+→ Iterate file with filter
+→ Count matches, collect up to max_examples
+← { total_matches, examples }  // NOT all lines!
 ```
 
 #### log_fetch
 ```
-→ Итерируем файл с фильтром, offset, limit
-← { lines: [{line_num, line}, ...] }  // Сырые данные
+→ Iterate file with filter, offset, limit
+← { lines: [{line_num, line}, ...] }  // Raw data
 ```
 
-## Поток данных типичного сеанса
+## Typical Session Data Flow
 
 ```
 1. LLM: log_overview("/var/log/app.log")
-   ← "12M строк, 3 дня, формат ISO8601"
+   ← "12M lines, 3 days, ISO8601 format"
 
 2. LLM: log_cluster(file, max_clusters=8)
-   [Кластеризация всего файла, кэширование]
-   ← 8 кластеров с шаблонами и примерами
+   [Clustering entire file, caching]
+   ← 8 clusters with patterns and examples
 
 3. LLM: log_timeline(file, cluster_id=5)
-   [Использует кэш, фильтрует timestamps]
-   ← Гистограмма, аномалия в 13:45
+   [Uses cache, filters timestamps]
+   ← Histogram, anomaly at 13:45
 
 4. LLM: log_cluster_drill(file, cluster_id=5)
-   [Перечитывает файл, субкластеризация]
-   ← 4 подкластера внутри ERROR
+   [Re-reads file, sub-clustering]
+   ← 4 subclusters within ERROR
 
 5. LLM: log_grep(file, "connection refused")
-   ← count=3500, 5 примеров
+   ← count=3500, 5 examples
 
 6. LLM: log_fetch(file, filter="connection refused", limit=50)
-   ← 50 сырых строк для детального анализа
+   ← 50 raw lines for detailed analysis
 ```
 
-## Расширяемость
+## Extensibility
 
-### Добавление нового формата времени
-1. Добавить объект в `TIMESTAMP_PATTERNS` в timestamps.js
-2. Реализовать regex и функцию parse
+### Adding New Time Format
+1. Add object to `TIMESTAMP_PATTERNS` in timestamps.js
+2. Implement regex and parse function
 
-### Добавление нового инструмента
-1. Добавить описание в `TOOLS` в server.js
-2. Реализовать `handleNewTool()` 
-3. Добавить case в switch обработчика
+### Adding New Tool
+1. Add description to `TOOLS` in server.js
+2. Implement `handleNewTool()`
+3. Add case to handler switch
 
-### Улучшение алгоритма кластеризации
-Основная точка — функция `findMatchingTokenBlocks()` в clustering.js.
-Можно экспериментировать с:
-- Весами токенов (числа vs слова)
-- Минимальной длиной блока
-- Стратегией выбора блоков
+### Improving Clustering Algorithm
+Main point — `findMatchingTokenBlocks()` function in clustering.js.
+Can experiment with:
+- Token weights (numbers vs words)
+- Minimum block length
+- Block selection strategy

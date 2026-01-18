@@ -1,25 +1,30 @@
-# CLAUDE.md - Инструкции для Claude Code
+# CLAUDE.md - Instructions for Claude Code
 
-## Обзор проекта
+## Language Policy
 
-**Log Explorer MCP** — это MCP сервер для интеллектуального анализа логов через LLM. Ключевая идея: логи слишком большие для контекста LLM, поэтому мы используем кластеризацию для сжатия информации и lazy exploration для постепенного углубления в детали.
+- **Documentation and code comments**: English only
+- **Communication with user**: Russian (по-русски)
 
-## Концепция
+## Project Overview
 
-### Проблема
-- Логи содержат миллионы строк — не влезают в контекст
-- Grep требует знать что искать заранее
-- Формат логов неизвестен до анализа
+**Log Explorer MCP** is an MCP server for intelligent log analysis through LLM. Key idea: logs are too large for LLM context, so we use clustering for information compression and lazy exploration for gradual drill-down into details.
 
-### Решение
-1. **Кластеризация по похожести** — группируем похожие строки, извлекаем шаблоны
-2. **Lazy exploration** — сначала статистика и примеры, детали по запросу
-3. **LLM-driven drill-down** — LLM сама решает куда углубляться
-4. **Временной анализ** — динамика логов, детекция аномалий
+## Concept
 
-### Алгоритм similarity (ключевая инновация)
+### Problem
+- Logs contain millions of lines — don't fit in context
+- Grep requires knowing what to search for in advance
+- Log format is unknown until analysis
 
-Токен-based извлечение шаблонов:
+### Solution
+1. **Similarity clustering** — group similar lines, extract patterns
+2. **Lazy exploration** — statistics and examples first, details on demand
+3. **LLM-driven drill-down** — LLM decides where to explore deeper
+4. **Temporal analysis** — log dynamics, anomaly detection
+
+### Similarity Algorithm (Key Innovation)
+
+Token-based pattern extraction:
 ```
 "User john logged in from 192.168.1.1"
 "User admin logged in from 10.0.0.5"
@@ -27,88 +32,87 @@
 "User .* logged in from .*"
 ```
 
-Алгоритм в `clustering.js`:
-1. Токенизация (слова, числа, пунктуация отдельно)
-2. LCS на уровне токенов (не символов!)
-3. Жадный выбор непересекающихся блоков
-4. Формирование шаблона с `.*` на месте различий
+Algorithm in `clustering.js`:
+1. Tokenization (words, numbers, punctuation separately)
+2. LCS at token level (not characters!)
+3. Greedy selection of non-overlapping blocks
+4. Pattern formation with `.*` for differences
 5. Similarity = 2 × matched_len / (len_a + len_b)
 
-## Структура проекта
+## Project Structure
 
 ```
 log-explorer-mcp/
-├── CLAUDE.md          # Этот файл - инструкции для Claude Code
-├── README.md          # Документация для пользователей
-├── ARCHITECTURE.md    # Детальная архитектура
-├── TODO.md            # Задачи на развитие
-├── package.json       # Node.js конфигурация (ESM)
-├── server.js          # MCP сервер - точка входа
-├── clustering.js      # Алгоритм кластеризации
-├── timestamps.js      # Парсинг временных меток
-├── test-cli.js        # CLI для тестирования без MCP
-└── generate-test-logs.cjs  # Генератор тестовых данных
+├── CLAUDE.md          # This file - instructions for Claude Code
+├── README.md          # User documentation
+├── ARCHITECTURE.md    # Detailed architecture
+├── package.json       # Node.js configuration (ESM)
+├── server.js          # MCP server - entry point
+├── clustering.js      # Clustering algorithm
+├── timestamps.js      # Timestamp parsing
+├── test-cli.js        # CLI for testing without MCP
+└── generate-test-logs.cjs  # Test data generator
 ```
 
-## Как запускать
+## How to Run
 
 ```bash
-# Установка зависимостей
+# Install dependencies
 npm install
 
-# Тестирование CLI (без MCP)
+# Test CLI (without MCP)
 node generate-test-logs.cjs /tmp/test.log
 node test-cli.js /tmp/test.log
 
-# Запуск MCP сервера
+# Run MCP server
 node server.js
 ```
 
 ## MCP Tools (API)
 
-| Tool | Назначение | Когда использовать |
-|------|-----------|-------------------|
-| `log_overview` | Общая информация о файле | Первый шаг анализа |
-| `log_cluster` | Кластеризация с шаблонами | Понять структуру логов |
-| `log_cluster_drill` | Подкластеры внутри кластера | Углубиться в интересный кластер |
-| `log_timeline` | Временная гистограмма | Найти аномалии по времени |
-| `log_grep` | Поиск (count + примеры) | Проверить гипотезу |
-| `log_fetch` | Сырые строки | Когда точно знаешь что нужно |
+| Tool | Purpose | When to Use |
+|------|---------|-------------|
+| `log_overview` | General file information | First step of analysis |
+| `log_cluster` | Clustering with patterns | Understand log structure |
+| `log_cluster_drill` | Subclusters within cluster | Dive into interesting cluster |
+| `log_timeline` | Temporal histogram | Find anomalies over time |
+| `log_grep` | Search (count + examples) | Verify hypothesis |
+| `log_fetch` | Raw lines | When you know exactly what you need |
 
-## Принципы разработки
+## Development Principles
 
-1. **Lazy by default** — минимум данных на каждом шаге
-2. **Statistics first** — сначала count/histogram, потом примеры
-3. **No Python** — проект на Node.js (предпочтение владельца)
-4. **Простота алгоритмов** — без ML/embeddings, чистые алгоритмы
+1. **Lazy by default** — minimum data at each step
+2. **Statistics first** — count/histogram first, then examples
+3. **No Python** — project is Node.js (owner preference)
+4. **Algorithm simplicity** — no ML/embeddings, pure algorithms
 
-## Текущее состояние
+## Current State
 
-✅ Реализовано:
-- Базовая кластеризация с извлечением шаблонов
-- Парсинг временных меток (несколько форматов)
-- Временные гистограммы с детекцией аномалий
-- MCP сервер со всеми tools
-- CLI для тестирования
+✅ Implemented:
+- Basic clustering with pattern extraction
+- Timestamp parsing (multiple formats)
+- Temporal histograms with anomaly detection
+- MCP server with all tools
+- CLI for testing
 
-⚠️ Требует доработки:
-- См. TODO.md для списка задач
+⚠️ Needs improvement:
+- See `bd ready` for task list
 
-## Команды для разработки
+## Development Commands
 
 ```bash
-# Тест кластеризации на реальных логах
+# Test clustering on real logs
 node test-cli.js /var/log/syslog
 
-# Генерация логов с аномалиями
+# Generate logs with anomalies
 node generate-test-logs.cjs /tmp/anomaly.log
 
-# Проверка MCP протокола (stdin/stdout)
+# Test MCP protocol (stdin/stdout)
 echo '{"jsonrpc":"2.0","method":"tools/list","id":1}' | node server.js
 ```
 
-## Контекст создания
+## Creation Context
 
-Проект создан в диалоге о анализе логов через LLM. Исходная идея: кластеризация логов позволяет LLM понять структуру без чтения всех строк, а затем интерактивно "нырять" в интересные кластеры.
+Project created in a dialogue about log analysis through LLM. Original idea: log clustering allows LLM to understand structure without reading all lines, then interactively "dive" into interesting clusters.
 
-Вдохновение: алгоритм Drain для log parsing, но с фокусом на interactive exploration вместо batch processing.
+Inspiration: Drain algorithm for log parsing, but focused on interactive exploration instead of batch processing.
