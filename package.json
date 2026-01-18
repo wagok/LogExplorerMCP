@@ -1,0 +1,13 @@
+{
+  "name": "log-explorer-mcp",
+  "version": "0.1.0",
+  "description": "MCP server for intelligent log analysis with clustering",
+  "main": "server.js",
+  "type": "module",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0"
+  }
+}
